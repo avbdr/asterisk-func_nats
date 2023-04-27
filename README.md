@@ -1,8 +1,21 @@
 # func_nats
 
-WARNING: its a WIP repo. Nothing builds yet
+1. Overview
+    func_nats is a asterisk module to use NATS from the dialplan.
 
-func_nats is a asterisk module to use NATS from the dialplan.
+
+2. Dependencies
+
+The following libraries  must be installed:
+    nats.c - https://github.com/nats-io/nats.c/releases
+
+3. Module build
+    - Move file func_nats.c to Astrisk source addons/ directory
+    - Update addons/Makefile and add func_nats to the list of modules assigned to the ALL_C_MODS variable	
+    - Update addons/Makefile and add line: func_nats.so: LIBS+=-lnats -I/usr/local/include
+    - configure asterisk with LDFLAGS option:  ./configure LDFLAGS=-lnats
+    - make & make menuselect & make install asterisk
+
 
 ## Using func_nats
 

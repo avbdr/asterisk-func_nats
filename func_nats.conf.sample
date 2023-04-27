@@ -1,12 +1,5 @@
 ; func_nats.conf.sample
 ;
-; Original Author : Sergio Medina Toledo <lumasepa at gmail>
-; https://github.com/tic-ull/func_nats
-;
-; This program is free software, distributed under the terms of
-; the GNU General Public License Version 2. See the LICENSE file
-; at the top of the source tree.
-;
 ; This is a basic config for use with the NATS_PUBLISH() functions from the asterisk dialplan
 
 
@@ -16,7 +9,7 @@
 hostname=127.0.0.1
 
 ; port of the nats server
-if not defined, use default of 6379
+if not defined, use default of 4222
 port=4222
 
 ; username for nats server
