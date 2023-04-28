@@ -9,7 +9,7 @@
 hostname=127.0.0.1
 
 ; port of the nats server
-if not defined, use default of 4222
+;if not defined, use default of 4222
 port=4222
 
 ; username for nats server
