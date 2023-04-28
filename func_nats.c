@@ -20,7 +20,6 @@
 
 
 
-
 #include <asterisk.h>
 #include <asterisk/module.h>
 #include <asterisk/pbx.h>
@@ -71,36 +70,19 @@ static char port[STR_CONF_SZ] = "";
 static char username[STR_CONF_SZ] = "";
 static char password[STR_CONF_SZ] = "";
 
+static int nats_connect(void * data);
+static void nats_disconnect(void * data);
 
-     
-static int acf_nats_publish_exec(struct ast_channel *chan, const char *cmd, char *parse, char *return_buffer, size_t len)
+AST_THREADSTORAGE_CUSTOM(nats_instance, nats_connect, nats_disconnect)
+
+
+
+static int nats_connect(void * data)
 {
-    ast_log(LOG_NOTICE, parse);
-
-    AST_DECLARE_APP_ARGS(args, AST_APP_ARG(command););
-
-    //return_buffer[0] = '\0';
-
-    if (ast_strlen_zero(parse)) {
-        ast_log(LOG_WARNING, "NATS_PUBLISH requires two arguments, NATS_PUBLISH(subject,\"key1=val1,key2=val2...\")\n");
-        return -1;
-    }
-
-    AST_STANDARD_APP_ARGS(args, parse);
-
-    
-    if (args.argc != 2) {
-	ast_log(LOG_WARNING, "NATS_PUBLISH requires two arguments 2, NATS_PUBLISH(subject,\"key1=val1,key2=val2...\")\n");
-        return -1;
-    }
-
-
-
-  
-
-    natsConnection      *conn = NULL;
+    natsConnection     ** conn = data;
     natsStatus         s;
 
+  
     char nats_url[STR_CONF_SZ] = "";
     
     strcpy(nats_url, "nats://");
@@ -116,31 +98,65 @@ static int acf_nats_publish_exec(struct ast_channel *chan, const char *cmd, char
     strcat(nats_url, ":");
     strcat(nats_url, port);
     
-    // Creates a connection to the default NATS URL
-    s = natsConnection_ConnectTo(&conn, nats_url);
-    if (s == NATS_OK)
-    {
-       ast_log(LOG_NOTICE, "= = = = Connected to NATS = = = = !n");
-      
-       ast_log(LOG_NOTICE, nats_url);
-
-        // This is a convenient function to send a message on "foo"
-        // as a string.
-        s = natsConnection_PublishString(conn, "cdrlog", "hello from module!");
-    }
-
-    // Anything that is created need to be destroyed
-    natsConnection_Destroy(conn);
-
     
+    s = natsConnection_ConnectTo(conn, nats_url);
     if (s != NATS_OK)
     {
-      // nats_PrintLastErrorStack(stderr);
-	ast_log(LOG_NOTICE, "= = = = DIS + CONNECT = = = = !n");
+        ast_log(LOG_NOTICE, "Could not create NATS connection");
+        return -1;
+    }
+   
+    
+    return 0;
+}
+
+static void nats_disconnect(void * data)
+{
+    natsConnection     ** conn = data;
+
+    natsConnection_Destroy(*conn);
+    
+    ast_free(data);
+}
+
+
+
+     
+static int acf_nats_publish_exec(struct ast_channel *chan, const char *cmd, char *parse, char *return_buffer, size_t len)
+{
+     AST_DECLARE_APP_ARGS(args,
+			 AST_APP_ARG(arg1);
+			 AST_APP_ARG(arg2););
+
+    
+    if (ast_strlen_zero(parse)) {
+        ast_log(LOG_WARNING, "NATS_PUBLISH requires two arguments, NATS_PUBLISH(subject,key1=val1,key2=val2...)\n");
+        return -1;
+    }
+   
+    AST_STANDARD_APP_ARGS(args, parse);
+
+    if (args.argc != 2) {
+        ast_log(LOG_WARNING, "NATS_PUBLISH requires two arguments, NATS_PUBLISH(subject,key1=val1,key2=val2...)\n");
+        return -1;
+    }
+    
+    natsConnection      **conn;
+    natsStatus         s;
+    
+    if (!(conn = ast_threadstorage_get(&nats_instance, sizeof(*conn)))) {
+        ast_log(LOG_ERROR, "Error retrieving the nats connection from the thread\n");
+        return -1;
+    }
+    
+    s = natsConnection_PublishString(*conn, args.arg1, args.arg2);
+
+    if (s != NATS_OK)
+    {
+        nats_PrintLastErrorStack(stderr);
+        ast_log(LOG_NOTICE, "Error publishing to nats server");
         return 0;
     }
-
-
 
     return 0;
 }
@@ -150,14 +166,6 @@ static struct ast_custom_function acf_nats_publish = {
         .name = "NATS_PUBLISH",
         .read = acf_nats_publish_exec,
 };
-
-
-
-
-
-
-
-
 
 
 
@@ -210,19 +218,13 @@ static int load_config(void)
 
     ast_copy_string(password, conf_str, sizeof(password));
 
-   
   
     ast_config_destroy(config);
-
     ast_verb(2, "NATS config loaded.\n");
-
-    /* Done reloading. Release lock so others can now use driver. */
     ast_mutex_unlock(&nats_lock);
 
     return 1;
 }
-
-
 
 
 
@@ -247,10 +249,21 @@ static int unload_module(void)
     return 0;
 }
 
+static int reload(void)
+{
+    ast_log(AST_LOG_NOTICE, "Reloading ...\n");
+    if(load_config() == -1){
+        return AST_MODULE_LOAD_DECLINE;
+    }
+
+    return 0;
+}
+
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "NATS related dialplan functions",
                 .load = load_module,
-                .unload = unload_module
+                .unload = unload_module,
+                .reload = reload,
 );
 
 
