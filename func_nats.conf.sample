@@ -4,22 +4,6 @@
 
 
 [general]
-; host of the nats server
-; if not defined, use default of 127.0.0.1
-hostname=127.0.0.1
+; url of NATS server
+nats_url=nats://127.0.0.1:4222
 
-; port of the nats server
-;if not defined, use default of 4222
-port=4222
-
-; username for nats server
-; if not defined, authentication will not be used
-;username=s3cr3tp@ssw0rd
-
-; password for nats server
-; if not defined, authentication will not be used
-;password=s3cr3tp@ssw0rd
-
-; connection time out when connecting to the server
-; if not defined, use a default of 5 seconds
-timeout=5
