@@ -65,10 +65,7 @@
 
 AST_MUTEX_DEFINE_STATIC(nats_lock);
 
-static char hostname[STR_CONF_SZ] = "";
-static char port[STR_CONF_SZ] = "";
-static char username[STR_CONF_SZ] = "";
-static char password[STR_CONF_SZ] = "";
+static char nats_url[STR_CONF_SZ] = "";
 
 static int nats_connect(void * data);
 static void nats_disconnect(void * data);
@@ -82,30 +79,12 @@ static int nats_connect(void * data)
     natsConnection     ** conn = data;
     natsStatus         s;
 
-  
-    char nats_url[STR_CONF_SZ] = "";
-    
-    strcpy(nats_url, "nats://");
-    if ( !ast_strlen_zero(username) )
-    {
-        strcat(nats_url, username);
-        strcat(nats_url, ":");
-        strcat(nats_url, password);
-        strcat(nats_url, "@");
-    }
-
-    strcat(nats_url, hostname);
-    strcat(nats_url, ":");
-    strcat(nats_url, port);
-    
-    
     s = natsConnection_ConnectTo(conn, nats_url);
     if (s != NATS_OK)
     {
         ast_log(LOG_NOTICE, "Could not create NATS connection");
         return -1;
     }
-   
     
     return 0;
 }
@@ -186,39 +165,15 @@ static int load_config(void)
 
     ast_mutex_lock(&nats_lock);
 
-    if (!(conf_str = ast_variable_retrieve(config, "general", "hostname"))) {
+    if (!(conf_str = ast_variable_retrieve(config, "general", "nats_url"))) {
         ast_log(AST_LOG_NOTICE,
-                "No nats hostname, using localhost as default.\n");
-        conf_str =  "127.0.0.1";
+                "No nats_url configured, using nats://127.0.0.1:4222 as default.\n");
+        conf_str =  "nats://127.0.0.1:4222";
     }
 
-    ast_copy_string(hostname, conf_str, sizeof(hostname));
+    ast_copy_string(nats_url, conf_str, sizeof(nats_url));
 
-    if (!(conf_str = ast_variable_retrieve(config, "general", "port"))) {
-        ast_log(AST_LOG_NOTICE,
-                "No nats port found, using 6379 as default.\n");
-        conf_str = "4222";
-    }
-
-    ast_copy_string(port, conf_str, sizeof(port));
-
-    if (!(conf_str = ast_variable_retrieve(config, "general", "username"))) {
-        ast_log(AST_LOG_NOTICE,
-                "No nats username found, disabling authentication.\n");
-        conf_str =  "";
-    }
-    
-    ast_copy_string(username, conf_str, sizeof(password));
-    
-    if (!(conf_str = ast_variable_retrieve(config, "general", "password"))) {
-        ast_log(AST_LOG_NOTICE,
-                "No nats password found, disabling authentication.\n");
-        conf_str =  "";
-    }
-
-    ast_copy_string(password, conf_str, sizeof(password));
-
-  
+     
     ast_config_destroy(config);
     ast_verb(2, "NATS config loaded.\n");
     ast_mutex_unlock(&nats_lock);
